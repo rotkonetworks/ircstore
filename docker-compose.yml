@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+ indexer:
+   image: ircstore:latest
+   container_name: ircstore-indexer
+   command: /usr/local/bin/ircstore
+   restart: unless-stopped
+   env_file: .env
+   environment:
+     - BASE_PATH=/data
+   volumes:
+     - ircstore-data:/data
+   networks:
+     - ircstore
+   logging:
+     driver: "json-file"
+     options:
+       max-size: "10m"
+       max-file: "3"
+   healthcheck:
+     test: ["CMD", "pgrep", "ircstore"]
+     interval: 30s
+     timeout: 10s
+     retries: 3
+
+ web:
+   image: ircstore:latest
+   container_name: ircstore-web
+   command: /usr/local/bin/ircstore-web
+   restart: unless-stopped
+   env_file: .env
+   environment:
+     - BASE_PATH=/data
+   ports:
+     - "127.0.0.1:8080:8080"
+   volumes:
+     - ircstore-data:/data
+     - ./static:/app/static:ro
+   networks:
+     - ircstore
+   depends_on:
+     - indexer
+   logging:
+     driver: "json-file"
+     options:
+       max-size: "10m"
+       max-file: "3"
+   healthcheck:
+     test: ["CMD", "curl", "-f", "http://localhost:8080/api/channels"]
+     interval: 30s
+     timeout: 10s
+     retries: 3
+
+volumes:
+ ircstore-data:
+   driver: local
+
+networks:
+ ircstore:
+   driver: bridge
+   ipam:
+     config:
+       - subnet: 172.20.0.0/24

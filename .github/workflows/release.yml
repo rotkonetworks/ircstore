@@ -1,0 +1,62 @@
+name: Release
+
+on:
+ push:
+   tags:
+     - 'v*.*.*'
+
+jobs:
+ release:
+   runs-on: ubuntu-latest
+   steps:
+     - uses: actions/checkout@v3
+     
+     - uses: actions-rs/toolchain@v1
+       with:
+         toolchain: stable
+         override: true
+     
+     - name: Build binaries
+       run: |
+         cargo build --release
+         strip target/release/ircstore
+         strip target/release/ircstore-web
+     
+     - name: Create Release
+       id: create_release
+       uses: actions/create-release@v1
+       env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       with:
+         tag_name: ${{ github.ref }}
+         release_name: Release ${{ github.ref }}
+         draft: false
+         prerelease: false
+     
+     - name: Upload ircstore binary
+       uses: actions/upload-release-asset@v1
+       env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       with:
+         upload_url: ${{ steps.create_release.outputs.upload_url }}
+         asset_path: ./target/release/ircstore
+         asset_name: ircstore-linux-amd64
+         asset_content_type: application/octet-stream
+     
+     - name: Upload ircstore-web binary
+       uses: actions/upload-release-asset@v1
+       env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       with:
+         upload_url: ${{ steps.create_release.outputs.upload_url }}
+         asset_path: ./target/release/ircstore-web
+         asset_name: ircstore-web-linux-amd64
+         asset_content_type: application/octet-stream
+     
+     - name: Build and push Docker
+       run: |
+         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+         docker build -t rotkonetworks/ircstore:${GITHUB_REF#refs/tags/} .
+         docker tag rotkonetworks/ircstore:${GITHUB_REF#refs/tags/} rotkonetworks/ircstore:latest
+         docker push rotkonetworks/ircstore:${GITHUB_REF#refs/tags/}
+         docker push rotkonetworks/ircstore:latest
