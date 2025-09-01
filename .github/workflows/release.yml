@@ -53,10 +53,10 @@ jobs:
          asset_name: ircstore-web-linux-amd64
          asset_content_type: application/octet-stream
      
-     - name: Build and push Docker
-       run: |
-         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-         docker build -t rotkonetworks/ircstore:${GITHUB_REF#refs/tags/} .
-         docker tag rotkonetworks/ircstore:${GITHUB_REF#refs/tags/} rotkonetworks/ircstore:latest
-         docker push rotkonetworks/ircstore:${GITHUB_REF#refs/tags/}
-         docker push rotkonetworks/ircstore:latest
+     # - name: Build and push Docker
+     #   run: |
+     #     echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+     #     docker build -t rotkonetworks/ircstore:${GITHUB_REF#refs/tags/} .
+     #     docker tag rotkonetworks/ircstore:${GITHUB_REF#refs/tags/} rotkonetworks/ircstore:latest
+     #     docker push rotkonetworks/ircstore:${GITHUB_REF#refs/tags/}
+     #     docker push rotkonetworks/ircstore:latest
