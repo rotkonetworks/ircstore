@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ircstore - API Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font: 14px monospace; background: #1e1e1e; color: #d4d4d4; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 { color: #4ec9b0; margin-bottom: 20px; }
+        h2 { color: #569cd6; margin: 30px 0 15px; }
+        h3 { color: #9cdcfe; margin: 20px 0 10px; }
+        pre { background: #252526; padding: 15px; border-radius: 3px; overflow-x: auto; margin: 10px 0; }
+        code { background: #2d2d30; padding: 2px 5px; border-radius: 2px; }
+        a { color: #4ec9b0; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .endpoint { background: #2d2d30; padding: 10px; margin: 10px 0; border-left: 3px solid #4ec9b0; }
+        .method { color: #608b4e; font-weight: bold; }
+        .nav { margin-bottom: 30px; padding: 15px; background: #252526; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/">← Back to Logs</a> | <a href="https://github.com/rotkonetworks/ircstore">GitHub</a>
+    </div>
+
+    <h1>ircstore</h1>
+    <p>Persistent IRC log storage with S2 compression and real-time WebSocket streaming.</p>
+
+    <h2>What is ircstore?</h2>
+    <p>ircstore is a high-performance IRC logging system that:</p>
+    <ul style="margin: 10px 0 10px 30px;">
+        <li>Stores IRC messages using S2 compression for efficient disk usage</li>
+        <li>Provides REST API for querying historical logs</li>
+        <li>Streams real-time messages via WebSocket</li>
+        <li>Maintains separate streams for each IRC channel</li>
+    </ul>
+
+    <h2>REST API</h2>
+
+    <div class="endpoint">
+        <span class="method">GET</span> <code>/api/channels</code>
+        <p>List all available IRC channels</p>
+        <pre>curl https://ircstore.rotko.net/api/channels</pre>
+        <p>Response:</p>
+        <pre>["#rust", "#linux", "#networking"]</pre>
+    </div>
+
+    <div class="endpoint">
+        <span class="method">GET</span> <code>/api/logs/:channel</code>
+        <p>Retrieve historical logs for a specific channel</p>
+        <p>Query parameters:</p>
+        <ul style="margin: 10px 0 10px 30px;">
+            <li><code>limit</code> - Number of messages (default: 100, max: 1000)</li>
+            <li><code>offset</code> - Starting offset for pagination (default: 0)</li>
+        </ul>
+        <pre>curl "https://ircstore.rotko.net/api/logs/%23rust?limit=50&offset=0"</pre>
+        <p>Response:</p>
+        <pre>[
+  {
+    "timestamp": 1698765432,
+    "channel": "#rust",
+    "nick": "alice",
+    "message": "anyone familiar with async traits?"
+  }
+]</pre>
+    </div>
+
+    <h2>WebSocket API</h2>
+
+    <div class="endpoint">
+        <span class="method">WS</span> <code>/ws</code>
+        <p>Subscribe to real-time IRC messages across all channels</p>
+        <pre>const ws = new WebSocket('wss://ircstore.rotko.net/ws');
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    console.log(`[${msg.channel}] ${msg.nick}: ${msg.message}`);
+};</pre>
+        <p>Message format:</p>
+        <pre>{
+  "timestamp": 1698765432,
+  "channel": "#rust",
+  "nick": "alice",
+  "message": "anyone familiar with async traits?"
+}</pre>
+    </div>
+
+    <h2>Example: Python Client</h2>
+    <pre>import requests
+import websocket
+import json
+
+# Get available channels
+channels = requests.get('https://ircstore.rotko.net/api/channels').json()
+print(f"Available channels: {channels}")
+
+# Get recent logs
+logs = requests.get('https://ircstore.rotko.net/api/logs/%23rust?limit=10').json()
+for msg in logs:
+    print(f"[{msg['nick']}] {msg['message']}")
+
+# Subscribe to real-time updates
+def on_message(ws, message):
+    msg = json.loads(message)
+    print(f"[{msg['channel']}] {msg['nick']}: {msg['message']}")
+
+ws = websocket.WebSocketApp('wss://ircstore.rotko.net/ws', on_message=on_message)
+ws.run_forever()</pre>
+
+    <h2>Example: JavaScript Client</h2>
+    <pre>// Fetch historical logs
+async function getLogs(channel, limit = 100) {
+    const res = await fetch(`/api/logs/${encodeURIComponent(channel)}?limit=${limit}`);
+    return await res.json();
+}
+
+// Real-time subscription
+const ws = new WebSocket('wss://ircstore.rotko.net/ws');
+const messageHandlers = new Map();
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    const handler = messageHandlers.get(msg.channel);
+    if (handler) handler(msg);
+};
+
+// Subscribe to specific channel
+function subscribeToChannel(channel, callback) {
+    messageHandlers.set(channel, callback);
+}
+
+subscribeToChannel('#rust', (msg) => {
+    console.log(`${msg.nick}: ${msg.message}`);
+});</pre>
+
+    <h2>Data Format</h2>
+    <h3>IrcEvent Structure</h3>
+    <pre>interface IrcEvent {
+    timestamp: number;  // Unix timestamp
+    channel: string;    // IRC channel name
+    nick: string;       // Sender nickname
+    message: string;    // Message content
+}</pre>
+
+    <h2>Implementation Details</h2>
+    <ul style="margin: 10px 0 10px 30px;">
+        <li>Built with Rust using Axum web framework</li>
+        <li>S2 compression for efficient storage</li>
+        <li>Append-only log structure for each channel</li>
+        <li>Tokio async runtime for high concurrency</li>
+        <li>CORS enabled for browser-based clients</li>
+    </ul>
+
+    <h2>Source Code</h2>
+    <p>The project is open source and available at <a href="https://github.com/rotkonetworks/ircstore">github.com/rotkonetworks/ircstore</a></p>
+</body>
+</html>
