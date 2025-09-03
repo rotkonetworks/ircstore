@@ -92,15 +92,37 @@ impl IrcIndexer {
     
     fn process_message(&self, msg: &Message) -> Result<IrcEvent> {
         let (channel, nick, message) = match &msg.command {
-            Command::PRIVMSG(target, text) => {
-                (Some(target.clone()), msg.source_nickname().map(|s| s.to_string()), text.clone())
-            }
-            Command::JOIN(chan, _, _) => {
-                (Some(chan.clone()), msg.source_nickname().map(|s| s.to_string()), "JOIN".to_string())
-            }
-            Command::PART(chan, reason) => {
-                (Some(chan.clone()), msg.source_nickname().map(|s| s.to_string()),
-                 reason.as_ref().unwrap_or(&"PART".to_string()).clone())
+           Command::PRIVMSG(target, text) => {
+               (Some(target.clone()), msg.source_nickname().map(|s| s.to_string()), text.clone())
+           }
+           Command::JOIN(chan, _, _) => {
+               (Some(chan.clone()), msg.source_nickname().map(|s| s.to_string()),
+                format!("*** {} joined", msg.source_nickname().unwrap_or("*")))
+           }
+           Command::PART(chan, reason) => {
+               let part_msg = if let Some(r) = reason {
+                   format!("*** {} left ({})", msg.source_nickname().unwrap_or("*"), r)
+               } else {
+                   format!("*** {} left", msg.source_nickname().unwrap_or("*"))
+               };
+               (Some(chan.clone()), msg.source_nickname().map(|s| s.to_string()), part_msg)
+           }
+           Command::QUIT(reason) => {
+               let quit_msg = if let Some(r) = reason {
+                   format!("*** {} quit ({})", msg.source_nickname().unwrap_or("*"), r)
+               } else {
+                   format!("*** {} quit", msg.source_nickname().unwrap_or("*"))
+               };
+               (None, msg.source_nickname().map(|s| s.to_string()), quit_msg)
+           }
+           Command::TOPIC(chan, topic) => {
+               let topic_msg = if let Some(t) = topic {
+                   format!("*** Topic set to: {}", t)
+               } else {
+                   "*** Topic cleared".to_string()
+               };
+               (Some(chan.clone()), msg.source_nickname().map(|s| s.to_string()), topic_msg)
+           }
             }
             _ => (None, None, format!("{:?}", msg.command))
         };
