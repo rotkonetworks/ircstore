@@ -5,7 +5,7 @@ COPY src ./src
 COPY static ./static/
 RUN cargo build --release
 
-FROM debian:bullseye-slim
+FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/ircstore /usr/local/bin/ircstore
 COPY --from=builder /app/target/release/ircstore-web /usr/local/bin/ircstore-web
