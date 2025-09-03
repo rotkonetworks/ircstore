@@ -37,10 +37,10 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
             cd /home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}
+            podman-compose down || true
             mv .env.example .env
             sed -i "s|^IRC_CHANNELS=.*|IRC_CHANNELS="${{ env.MONITORED_ROOM }}"|" .env
             sed -i "s|^S2_AUTH_TOKEN=.*|S2_AUTH_TOKEN=${{ secrets.S2_AUTH_TOKEN }}|" .env
             podman load -i ircstore.tar.gz
-            podman-compose down || true
             podman-compose up -d
             rm ircstore.tar.gz
