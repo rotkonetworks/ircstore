@@ -123,7 +123,6 @@ impl IrcIndexer {
                };
                (Some(chan.clone()), msg.source_nickname().map(|s| s.to_string()), topic_msg)
            }
-            }
             _ => (None, None, format!("{:?}", msg.command))
         };
         
