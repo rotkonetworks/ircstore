@@ -12,6 +12,8 @@ use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use anyhow::Result;
 use clap::Parser;
+use tokio::task::JoinHandle;
+use std::collections::HashMap;
 
 #[derive(Parser)]
 struct Args {
@@ -103,17 +105,36 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
     }
 }
 
-async fn tail_all_streams(store: Arc<S2Store>) {
+// single task that manages all stream tails
+async fn tail_manager(store: Arc<S2Store>) {
+    let mut active_tasks: HashMap<String, JoinHandle<()>> = HashMap::new();
+    
     loop {
-        if let Ok(streams) = store.list_streams().await {
-            for stream in streams {
+        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+        
+        let Ok(streams) = store.list_streams().await else { continue };
+        
+        // start tails for new streams only
+        for stream in streams {
+            if !active_tasks.contains_key(&stream) {
                 let store = store.clone();
-                tokio::spawn(async move {
-                    let _ = store.tail(&stream).await;
+                let stream_name = stream.clone();
+                
+                let handle = tokio::spawn(async move {
+                    loop {
+                        if let Err(e) = store.tail(&stream_name).await {
+                            eprintln!("tail error for {}: {}", stream_name, e);
+                            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                        }
+                    }
                 });
+                
+                active_tasks.insert(stream, handle);
             }
         }
-        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+        
+        // cleanup dead tasks
+        active_tasks.retain(|_, handle| !handle.is_finished());
     }
 }
 
@@ -129,9 +150,8 @@ async fn main() -> Result<()> {
     };
 
     let store = Arc::new(S2Store::new().await?);
-
-    let store_clone = store.clone();
-    tokio::spawn(tail_all_streams(store_clone));
+    
+    tokio::spawn(tail_manager(store.clone()));
 
     let state = AppState { 
         store,
