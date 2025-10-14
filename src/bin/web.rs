@@ -93,14 +93,18 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
                         continue;
                     }
                 }
-                
+
                 let Ok(json) = serde_json::to_string(&event) else { continue };
                 if socket.send(Message::Text(json)).await.is_err() {
                     break;
                 }
             }
-            Some(Ok(_)) = socket.recv() => {}
-            Some(Err(_)) = socket.recv() => break,
+            msg = socket.recv() => {
+                match msg {
+                    Some(Ok(_)) => {}
+                    Some(Err(_)) | None => break,
+                }
+            }
             else => break,
         }
     }
